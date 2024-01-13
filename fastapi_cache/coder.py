@@ -14,12 +14,12 @@ from typing import (
 )
 
 import pendulum
+from fastapi._compat import ModelField
 from fastapi.encoders import jsonable_encoder
-from pydantic import BaseConfig, ValidationError, fields
+from pydantic import ValidationError
+from pydantic.fields import FieldInfo
 from starlette.responses import JSONResponse
-from starlette.templating import (
-    _TemplateResponse as TemplateResponse,  # pyright: ignore[reportPrivateUsage]
-)
+from starlette.templating import _TemplateResponse as TemplateResponse  # pyright: ignore[reportPrivateUsage]
 
 _T = TypeVar("_T", bound=type)
 
@@ -69,7 +69,7 @@ class Coder:
     # decode_as_type method and then stores a different kind of field for a
     # given type, do make sure that the subclass provides its own class
     # attribute for this cache.
-    _type_field_cache: ClassVar[Dict[Any, fields.ModelField]] = {}
+    _type_field_cache: ClassVar[Dict[Any, ModelField]] = {}
 
     @overload
     @classmethod
@@ -82,7 +82,9 @@ class Coder:
         ...
 
     @classmethod
-    def decode_as_type(cls, value: bytes, *, type_: Optional[_T]) -> Union[_T, Any]:
+    def decode_as_type(
+        cls, value: bytes, *, type_: Optional[_T]
+    ) -> Union[_T, Any]:
         """Decode value to the specific given type
 
         The default implementation uses the Pydantic model system to convert the value.
@@ -93,8 +95,10 @@ class Coder:
             try:
                 field = cls._type_field_cache[type_]
             except KeyError:
-                field = cls._type_field_cache[type_] = fields.ModelField(
-                    name="body", type_=type_, class_validators=None, model_config=BaseConfig
+                field_info = FieldInfo(annotation=type_)
+                field = cls._type_field_cache[type_] = ModelField(
+                    name="body",
+                    field_info=field_info,
                 )
             result, errors = field.validate(result, {}, loc=())
             if errors is not None:
